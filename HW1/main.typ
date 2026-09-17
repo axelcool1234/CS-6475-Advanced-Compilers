@@ -189,8 +189,8 @@ Tarski's fixed point theorem:\
 
 In Tarski's fixed point theorem, it does not require the lattice to have finite height.\
 
-This means it ultimately depends on which you use. If we use Kleene's without the assumption of finite height, we can define a lattice where $bot$ has an edge to $0$, $0$ has an edge to $1$, etc. The last natural number, $omega$ has an edge to $omega + 1$. If we define the transfer funciton as $f(x) = "if" x == omega "then" omega + 1 "else" x + 1$, then we face an issue:
+This means it ultimately depends on which you use. If we use Kleene's without the assumption of finite height, we can define a lattice where $bot$ has an edge to $0$, $0$ has an edge to $1$, etc. The first infinite ordinal, $omega$, has an edge to $omega + 1$. If we define the transfer funciton as $f(x) = "if" x == omega + 1 "then" omega + 1 "else" x + 1$, then we face an issue:
 - $union.sq.big_(i >= 0) f^i (bot) == omega$
 - However, $f(omega) = omega + 1$
-It didn't reach a fixpoint! So Kleene's fixed point theorem does not hold.
+It didn't reach a fixpoint via finite iteration. So Kleene's fixed point theorem does not hold.
 ], height: 23em)

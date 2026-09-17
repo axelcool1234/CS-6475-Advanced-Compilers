@@ -222,10 +222,11 @@ A function $f : L_1 arrow.r L_2$ where $L_1$ and $L_2$ are lattices is _distribu
 
   #enum(
     numbering: "(a)",
-    [Because _exps_ is always unioning for its op case, this is distributive.],
-    [Same reasoning for available expressions applies here - so it is distributive.],
-    [Because the lattice join is set union, it is distributive.],
+    [This analysis is distributive.],
+    [This analysis is distributive.],
+    [This analysis is distributive.],
     [It is not distributive. $hat(*)(-, -) union.sq hat(*)(+, +) = +$. $hat(*)(- union.sq +, - union.sq +) = top$.],
     [It is not distributive. $hat(*)(-1, -1) union.sq hat(*)(1, 1) = 1$. $hat(*)(-1 union.sq 1, -1 union.sq 1) = top$.],
   )
-], height: 18em)
+  I am not sure how to properly prove that an analysis is distributive.
+], height: 12em)
