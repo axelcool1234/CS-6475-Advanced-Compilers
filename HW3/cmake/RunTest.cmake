@@ -15,7 +15,7 @@ endforeach()
 execute_process(
   COMMAND "${MLIR_OPT}"
           "--load-pass-plugin=${PLUGIN}"
-          "--pass-pipeline=builtin.module(zero-analysis)"
+          "--pass-pipeline=builtin.module(known-bits)"
           "${INPUT}"
   OUTPUT_VARIABLE ignored_ir   # mlir-opt writes the unchanged IR to stdout
   ERROR_VARIABLE annotated
@@ -58,4 +58,4 @@ if(NOT failures STREQUAL "")
     "--- actual ---\n${annotated}")
 endif()
 
-message(STATUS "zero-analysis: all expected facts present")
+message(STATUS "known-bits: all expected facts present")

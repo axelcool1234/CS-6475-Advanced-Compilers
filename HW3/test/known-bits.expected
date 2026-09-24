@@ -1,0 +1,4 @@
+# The plugin must run and print the input, but the starter analysis must not
+# claim any known bits. Add positive facts here with each transfer rule.
+llvm.func @smoke
+!has known bits

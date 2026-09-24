@@ -1,11 +1,12 @@
-# MLIR out-of-tree dataflow analysis template
+# MLIR out-of-tree known-bits analysis
 
 A starting point for writing an MLIR dataflow analysis as a loadable `mlir-opt`
 plugin, with no LLVM source tree required and nothing to patch upstream.
 
-The included analysis, `zero-analysis`, decides which integer values in the LLVM
-dialect are known to be zero. It has exactly two transfer rules and is meant to
-be replaced: the point is the scaffolding around it.
+The included `known-bits` analysis is intentionally a stub: every reachable
+value is mapped to top, so it proves nothing yet. The plugin, solver setup,
+annotations, tests, and build scaffolding are ready for the known-bits domain
+and transfer functions to be implemented.
 
 ## Building
 
@@ -21,10 +22,10 @@ ctest --test-dir build --output-on-failure
 
 The flake also exposes the plugin as a package. `nix build` builds and tests it,
 while `nix flake check` runs the same build as a flake check. The resulting
-`result/bin/zero-analysis` wrapper invokes the matching MLIR 23 `mlir-opt`:
+`result/bin/known-bits` wrapper invokes the matching MLIR 23 `mlir-opt`:
 
 ```sh
-nix run . -- test/zero.mlir -o /dev/null
+nix run . -- test/known-bits.mlir -o /dev/null
 ```
 
 Without Nix, use any matching LLVM/MLIR installation:
@@ -65,12 +66,12 @@ version does not match what you are building against.
 annotated listing on stdout. Or invoke `mlir-opt` yourself:
 
 ```sh
-mlir-opt --load-pass-plugin=build/ZeroAnalysis.so \
-         --pass-pipeline='builtin.module(zero-analysis)' \
+mlir-opt --load-pass-plugin=build/KnownBits.so \
+         --pass-pipeline='builtin.module(known-bits)' \
          input.mlir -o /dev/null
 ```
 
-using `build/ZeroAnalysis.dylib` on macOS. The pass leaves the IR unchanged and
+using `build/KnownBits.dylib` on macOS. The pass leaves the IR unchanged and
 writes it to stdout as usual; the annotated view goes to stderr, so the two
 streams can be redirected independently. Annotations are comments, so the
 annotated listing is still valid MLIR. Values at top or bottom are left
@@ -84,42 +85,43 @@ clang -S -emit-llvm -o - input.c | mlir-translate --import-llvm
 
 ## What is where
 
-Two files hold the analysis; the rest is reusable scaffolding.
+Two files hold the analysis and one holds its domain; the rest is reusable
+scaffolding.
 
 | File | |
 |---|---|
-| `ZeroDomain.h` | The abstract domain: the lattice elements and their join. |
-| `ZeroAnalysis.cpp` | The transfer function: two rules, plus a default. |
-| `ZeroAnalysis.h` | Ties the domain to MLIR's sparse forward analysis. |
+| `KnownBitsDomain.h` | The placeholder bottom/top domain and its join. |
+| `KnownBits.cpp` | The transfer function; currently sends every result to top. |
+| `KnownBits.h` | Ties the domain to MLIR's sparse forward analysis. |
 | `Annotate.{h,cpp}` | Prints IR with a comment on each value. Domain-agnostic. |
 | `Plugin.cpp` | The pass, the solver setup, and the `mlir-opt` entry point. |
 | `cmake/RunTest.cmake` | The test runner. |
 
-To build a different analysis, replace `ZeroDomain.h` and the transfer
-functions in `ZeroAnalysis.cpp`. To rename the whole thing, rename the files,
-the `zero` namespace, and the three places `ZeroAnalysis` and `zero-analysis`
-appear in `CMakeLists.txt` and `Plugin.cpp`.
+Implement the lattice in `KnownBitsDomain.h` and add transfer functions in
+`KnownBits.cpp`. The remaining files should not need analysis-specific changes
+unless you want to change how facts are displayed.
 
 ## Tests
 
-`test/zero.mlir` exercises every transfer rule. `test/zero.expected` lists
-facts that must appear in the output, and — with a leading `!` — facts that
-must not. The negative checks are the ones that matter: an unsound transfer
-function still produces plausible-looking output, and only a test that pins
-down what the analysis must *not* claim will catch it.
+`test/known-bits.mlir` contains starter operations for the analysis.
+`test/known-bits.expected` lists facts that must appear in the output, and —
+with a leading `!` — facts that must not. It currently verifies that the stub
+does not claim any known bits. Add positive and negative cases with each
+transfer rule.
 
 Note that MLIR's printer renumbers SSA values, so the checks are written
-against operation text rather than the names in `zero.mlir`. After adding or
-reordering operations, regenerate with `./run.sh test/zero.mlir`.
+against operation text rather than source SSA names. After adding or reordering
+operations, inspect the output with `./run.sh test/known-bits.mlir`.
 
 ## Notes on portability
 
 Most of the platform-specific knowledge lives in `CMakeLists.txt`, next to the
 code it affects. The parts worth knowing about:
 
-**The plugin's file name differs.** It is `ZeroAnalysis.dylib` on macOS and
-`ZeroAnalysis.so` on Linux and WSL2. Nothing in this project spells that out:
-CMake is asked via `$<TARGET_FILE:ZeroAnalysis>`, and `run.sh` probes for both.
+**The plugin's file name differs.** It is `KnownBits.dylib` on macOS and
+`KnownBits.so` on Linux and WSL2. Nothing in this project spells out a single
+suffix: CMake is asked via `$<TARGET_FILE:KnownBits>`, and `run.sh` probes for
+both.
 
 **Linking a plugin on macOS needs special flags.** The plugin deliberately
 leaves its MLIR symbols undefined, to be resolved from the `mlir-opt` process
@@ -148,31 +150,15 @@ repository is cloned by a Windows git and built inside WSL2.
 
 `Plugin.cpp` loads three analyses into one solver. `DeadCodeAnalysis` supplies
 reachability — without it the solver must assume every branch is taken — and
-`SparseConstantPropagation` resolves branch conditions on its behalf. These are
-prerequisites for a precise result, not optional extras. `ZeroAnalysis` then
-propagates zeroness through operations and block arguments until the solver
-reaches a fixed point, which is when the pass queries it.
+`SparseConstantPropagation` resolves branch conditions on its behalf. The
+`KnownBitsAnalysis` then propagates states through operations and block
+arguments until the solver reaches a fixed point.
 
-The transfer function has two rules, one of each kind an analysis needs:
+For now, `KnownBitsState` has only bottom and top. Bottom means unreachable or
+not yet analyzed; top means no bits are known. `visitOperation` raises every
+result to top, and `setToEntryState` does the same for values entering from
+outside the analysis. Consequently, the annotation callback prints no facts.
 
-- **Constants** are zero or nonzero as written. This is the only rule that does
-  not consult its operands, and without some rule of this kind there would be
-  no facts to propagate at all.
-- **`x & y` is zero if either operand is zero**, because a zero operand clears
-  every bit. Note what this does not say: two nonzero operands prove nothing,
-  since `1 & 2` is `0`.
-
-Everything else is unknown. That is always sound, just imprecise — `llvm.or`
-and `llvm.add` are left unhandled in the test file precisely so their output
-shows what "unknown" looks like. Adding a third rule should be a matter of
-adding a third `if`.
-
-Values reaching the analysis from outside — function arguments, and results of
-any operation without a rule — start at top. The domain's fourth element,
-bottom, means "not yet proved reachable"; the solver starts everything there
-and raises it as facts arrive, which is what makes the fixed-point iteration
-terminate.
-
-The analysis is intraprocedural. It does not refine facts on branch conditions,
-so a value tested against zero is not known nonzero on the taken edge — that,
-and a rule for `llvm.or`, are the natural first extensions.
+The analysis is intraprocedural. Its known-bits representation, lattice join,
+and operation-specific transfer functions are intentionally left for the
+homework implementation.

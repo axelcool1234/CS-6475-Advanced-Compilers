@@ -23,10 +23,21 @@
           pluginSuffix = pkgs.stdenv.hostPlatform.extensions.sharedLibrary;
         in
         rec {
-          zero-analysis = pkgs.stdenv.mkDerivation {
-            pname = "zero-analysis";
+          known-bits = pkgs.stdenv.mkDerivation {
+            pname = "known-bits";
             version = "0.1.0";
-            src = nixpkgs.lib.cleanSource ./.;
+            src = nixpkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter =
+                path: type:
+                let
+                  name = builtins.baseNameOf path;
+                  isBuildDirectory =
+                    type == "directory"
+                    && (name == "build" || nixpkgs.lib.hasPrefix "build-" name);
+                in
+                nixpkgs.lib.cleanSourceFilter path type && !isBuildDirectory;
+            };
 
             nativeBuildInputs = [
               pkgs.cmake
@@ -48,13 +59,13 @@
             '';
 
             postInstall = ''
-              makeWrapper ${llvm.mlir}/bin/mlir-opt $out/bin/zero-analysis \
-                --add-flags "--load-pass-plugin=$out/lib/ZeroAnalysis${pluginSuffix}" \
-                --add-flags "--pass-pipeline='builtin.module(zero-analysis)'"
+              makeWrapper ${llvm.mlir}/bin/mlir-opt $out/bin/known-bits \
+                --add-flags "--load-pass-plugin=$out/lib/KnownBits${pluginSuffix}" \
+                --add-flags "--pass-pipeline='builtin.module(known-bits)'"
             '';
           };
 
-          default = zero-analysis;
+          default = known-bits;
         }
       );
 

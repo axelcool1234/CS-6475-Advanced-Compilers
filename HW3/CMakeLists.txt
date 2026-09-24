@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 # C is enabled although no C is compiled here: HandleLLVMOptions probes flags
 # with check_c_compiler_flag, and hard-errors if the C compiler is unknown.
-project(ZeroAnalysis LANGUAGES C CXX)
+project(KnownBits LANGUAGES C CXX)
 
 #===----------------------------------------------------------------------===#
 # Locate MLIR
@@ -106,21 +106,21 @@ add_definitions(${LLVM_DEFINITIONS})
 # that dlopens it.  Linking MLIR's static libraries in here instead would
 # duplicate every cl::opt and dialect registry, which fails at load time.
 #
-# The resulting file is ZeroAnalysis.dylib on macOS and ZeroAnalysis.so on
+# The resulting file is KnownBits.dylib on macOS and KnownBits.so on
 # Linux and WSL2.  Nothing in this project should spell that suffix out;
-# ask CMake via $<TARGET_FILE:ZeroAnalysis>, or let run.sh probe for it.
+# ask CMake via $<TARGET_FILE:KnownBits>, or let run.sh probe for it.
 #===----------------------------------------------------------------------===#
-add_llvm_library(ZeroAnalysis MODULE PARTIAL_SOURCES_INTENDED
-  ZeroAnalysis.cpp
+add_llvm_library(KnownBits MODULE PARTIAL_SOURCES_INTENDED
+  KnownBits.cpp
   Annotate.cpp
   Plugin.cpp
   PLUGIN_TOOL mlir-opt
 )
 
-set_target_properties(ZeroAnalysis PROPERTIES
+set_target_properties(KnownBits PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
-install(TARGETS ZeroAnalysis
+install(TARGETS KnownBits
   LIBRARY DESTINATION lib)
 
 #===----------------------------------------------------------------------===#
@@ -147,12 +147,12 @@ if(MLIR_OPT_EXECUTABLE)
   endif()
 
   enable_testing()
-  add_test(NAME zero-analysis
+  add_test(NAME known-bits
     COMMAND ${CMAKE_COMMAND}
       -DMLIR_OPT=${MLIR_OPT_EXECUTABLE}
-      -DPLUGIN=$<TARGET_FILE:ZeroAnalysis>
-      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/test/zero.mlir
-      -DCHECKS=${CMAKE_CURRENT_SOURCE_DIR}/test/zero.expected
+      -DPLUGIN=$<TARGET_FILE:KnownBits>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/test/known-bits.mlir
+      -DCHECKS=${CMAKE_CURRENT_SOURCE_DIR}/test/known-bits.expected
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunTest.cmake)
 else()
   message(STATUS "mlir-opt not found; skipping tests")
