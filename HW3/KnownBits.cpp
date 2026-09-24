@@ -41,16 +41,24 @@ LogicalResult KnownBitsAnalysis::visitOperation(
     return unknown();
   KnownBitsLattice *result = results[0];
 
-  if (isa<LLVM::AndOp>(op)) {
-    // TODO: Compute the known bits for llvm.and.
-  }
+  if (operands.size() == 2) {
+    const KnownBitsState &lhs = operands[0]->getValue();
+    const KnownBitsState &rhs = operands[1]->getValue();
 
-  if (isa<LLVM::OrOp>(op)) {
-    // TODO: Compute the known bits for llvm.or.
-  }
+    if (isa<LLVM::AndOp>(op)) {
+      propagateIfChanged(result, result->join(lhs && rhs));
+      return success();
+    }
 
-  if (isa<LLVM::XOrOp>(op)) {
-    // TODO: Compute the known bits for llvm.xor.
+    if (isa<LLVM::OrOp>(op)) {
+      propagateIfChanged(result, result->join(lhs || rhs));
+      return success();
+    }
+
+    if (isa<LLVM::XOrOp>(op)) {
+      propagateIfChanged(result, result->join(lhs ^ rhs));
+      return success();
+    }
   }
 
   // Fallback

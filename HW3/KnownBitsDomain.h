@@ -46,6 +46,24 @@ struct KnownBitsState {
   bool isBits() const { return kind == Kind::Bits; }
   bool isTop() const { return kind == Kind::Top; }
 
+  KnownBitsState operator&&(const KnownBitsState &rhs) const {
+    (void)rhs;
+    // TODO: Implement known bits for AND.
+    return top();
+  }
+
+  KnownBitsState operator||(const KnownBitsState &rhs) const {
+    (void)rhs;
+    // TODO: Implement known bits for OR.
+    return top();
+  }
+
+  KnownBitsState operator^(const KnownBitsState &rhs) const {
+    (void)rhs;
+    // TODO: Implement known bits for XOR.
+    return top();
+  }
+
   static KnownBitsState join(const KnownBitsState &lhs,
                              const KnownBitsState &rhs) {
     if (lhs.isBottom())
