@@ -90,7 +90,7 @@ scaffolding.
 
 | File | |
 |---|---|
-| `KnownBitsDomain.h` | The placeholder bottom/top domain and its join. |
+| `KnownBitsDomain.h` | The bottom/bits/top domain and its join. |
 | `KnownBits.cpp` | The transfer function; currently sends every result to top. |
 | `KnownBits.h` | Ties the domain to MLIR's sparse forward analysis. |
 | `Annotate.{h,cpp}` | Prints IR with a comment on each value. Domain-agnostic. |
@@ -154,10 +154,13 @@ reachability — without it the solver must assume every branch is taken — and
 `KnownBitsAnalysis` then propagates states through operations and block
 arguments until the solver reaches a fixed point.
 
-For now, `KnownBitsState` has only bottom and top. Bottom means unreachable or
-not yet analyzed; top means no bits are known. `visitOperation` raises every
-result to top, and `setToEntryState` does the same for values entering from
-outside the analysis. Consequently, the annotation callback prints no facts.
+`KnownBitsState` has bottom, bits, and top states. A bits state carries the bit
+width and separate vectors for positions known to be zero and known to be one.
+Bottom means unreachable or not yet analyzed; top means no bits are known.
+`visitOperation` still raises every result to top, and `setToEntryState` does
+the same for values entering from outside the analysis. Consequently, the
+annotation callback prints no facts until transfer functions construct bits
+states.
 
 The analysis is intraprocedural. Its known-bits representation, lattice join,
 and operation-specific transfer functions are intentionally left for the
