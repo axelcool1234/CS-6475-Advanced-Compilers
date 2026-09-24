@@ -9,6 +9,26 @@ be replaced: the point is the scaffolding around it.
 
 ## Building
 
+The included Nix flake pins LLVM and MLIR 23. Enter its development shell and
+use the ordinary CMake workflow:
+
+```sh
+nix develop
+cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+The flake also exposes the plugin as a package. `nix build` builds and tests it,
+while `nix flake check` runs the same build as a flake check. The resulting
+`result/bin/zero-analysis` wrapper invokes the matching MLIR 23 `mlir-opt`:
+
+```sh
+nix run . -- test/zero.mlir -o /dev/null
+```
+
+Without Nix, use any matching LLVM/MLIR installation:
+
 ```sh
 cmake -S . -B build
 cmake --build build

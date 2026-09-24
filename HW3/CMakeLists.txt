@@ -9,8 +9,19 @@ project(ZeroAnalysis LANGUAGES C CXX)
 # Every platform puts MLIRConfig.cmake somewhere different -- a hand-built
 # LLVM on WSL2, Homebrew's llvm on macOS, and Ubuntu's libmlir-dev all
 # disagree.  Rather than hard-code a path, derive it from whichever
-# llvm-config is on PATH.  Override with -DMLIR_DIR=/path/to/lib/cmake/mlir.
+# llvm-config is on PATH.  Override with -DMLIR_DIR=/path/to/lib/cmake/mlir;
+# development environments may export MLIR_DIR and LLVM_DIR instead.
 #===----------------------------------------------------------------------===#
+if(NOT MLIR_DIR AND DEFINED ENV{MLIR_DIR})
+  set(MLIR_DIR "$ENV{MLIR_DIR}" CACHE PATH
+      "Directory containing MLIRConfig.cmake")
+endif()
+
+if(NOT LLVM_DIR AND DEFINED ENV{LLVM_DIR})
+  set(LLVM_DIR "$ENV{LLVM_DIR}" CACHE PATH
+      "Directory containing LLVMConfig.cmake")
+endif()
+
 if(NOT MLIR_DIR)
   find_program(LLVM_CONFIG_EXECUTABLE
     NAMES llvm-config
@@ -108,6 +119,9 @@ add_llvm_library(ZeroAnalysis MODULE PARTIAL_SOURCES_INTENDED
 
 set_target_properties(ZeroAnalysis PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+install(TARGETS ZeroAnalysis
+  LIBRARY DESTINATION lib)
 
 #===----------------------------------------------------------------------===#
 # Tests
