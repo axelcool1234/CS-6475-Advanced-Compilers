@@ -8,13 +8,40 @@
 #include "KnownBits.h"
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Interfaces/DataLayoutInterfaces.h"
 
 using namespace mlir;
 
 namespace known_bits {
 
+KnownBitsState::KnownBitsState(LLVM::ConstantOp constant) : kind(Kind::Bits) {
+  const llvm::APInt &value =
+      llvm::cast<IntegerAttr>(constant.getValue()).getValue();
+
+  bitWidth = value.getBitWidth();
+  zeros.resize(bitWidth);
+  ones.resize(bitWidth);
+
+  for (unsigned i = 0; i < bitWidth; ++i) {
+    ones[i] = value[i];
+    zeros[i] = !value[i];
+  }
+}
+
 void KnownBitsAnalysis::setToEntryState(KnownBitsLattice *lattice) {
-  propagateIfChanged(lattice, lattice->join(KnownBitsState::top()));
+  Value anchor = lattice->getAnchor();
+  Type type = anchor.getType();
+  unsigned bitWidth = 0;
+  if (auto integerType = dyn_cast<IntegerType>(type)) {
+    bitWidth = integerType.getWidth();
+  } else if (isa<IndexType>(type)) {
+    Operation *scope = anchor.getParentRegion()->getParentOp();
+    llvm::TypeSize size = DataLayout::closest(scope).getTypeSizeInBits(type);
+    assert(!size.isScalable() && "index type must have a fixed bit width");
+    bitWidth = size.getFixedValue();
+  }
+  propagateIfChanged(lattice,
+                     lattice->join(KnownBitsState::top(bitWidth)));
 }
 
 LogicalResult KnownBitsAnalysis::visitOperation(
@@ -41,6 +68,11 @@ LogicalResult KnownBitsAnalysis::visitOperation(
     return unknown();
   KnownBitsLattice *result = results[0];
 
+  if (auto constant = dyn_cast<LLVM::ConstantOp>(op)) {
+    propagateIfChanged(result, result->join(KnownBitsState(constant)));
+    return success();
+  }
+
   if (operands.size() == 2) {
     const KnownBitsState &lhs = operands[0]->getValue();
     const KnownBitsState &rhs = operands[1]->getValue();
@@ -57,6 +89,16 @@ LogicalResult KnownBitsAnalysis::visitOperation(
 
     if (isa<LLVM::XOrOp>(op)) {
       propagateIfChanged(result, result->join(lhs ^ rhs));
+      return success();
+    }
+
+    if (isa<LLVM::AddOp>(op)) {
+      propagateIfChanged(result, result->join(lhs + rhs));
+      return success();
+    }
+
+    if (isa<LLVM::SubOp>(op)) {
+      propagateIfChanged(result, result->join(lhs - rhs));
       return success();
     }
   }

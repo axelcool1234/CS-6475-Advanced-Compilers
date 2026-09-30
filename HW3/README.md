@@ -1,12 +1,12 @@
 # MLIR out-of-tree known-bits analysis
 
-A starting point for writing an MLIR dataflow analysis as a loadable `mlir-opt`
+An MLIR sparse forward dataflow analysis implemented as a loadable `mlir-opt`
 plugin, with no LLVM source tree required and nothing to patch upstream.
 
-The included `known-bits` analysis is intentionally a stub: every reachable
-value is mapped to top, so it proves nothing yet. The plugin, solver setup,
-annotations, tests, and build scaffolding are ready for the known-bits domain
-and transfer functions to be implemented.
+The `known-bits` pass determines which bits of scalar integer SSA values are
+definitely zero or definitely one. It currently handles integer constants and
+the LLVM dialect's `and`, `or`, `xor`, `add`, and `sub` operations. Unsupported
+operations conservatively produce no known-bit facts.
 
 ## Building
 
@@ -90,24 +90,27 @@ scaffolding.
 
 | File | |
 |---|---|
-| `KnownBitsDomain.h` | The bottom/bits/top domain and its join. |
-| `KnownBits.cpp` | The transfer function; currently sends every result to top. |
+| `KnownBitsDomain.h` | The known-zero/known-one domain, lattice join, and operation helpers. |
+| `KnownBits.cpp` | MLIR transfer functions and entry-state construction. |
 | `KnownBits.h` | Ties the domain to MLIR's sparse forward analysis. |
 | `Annotate.{h,cpp}` | Prints IR with a comment on each value. Domain-agnostic. |
 | `Plugin.cpp` | The pass, the solver setup, and the `mlir-opt` entry point. |
 | `cmake/RunTest.cmake` | The test runner. |
 
-Implement the lattice in `KnownBitsDomain.h` and add transfer functions in
-`KnownBits.cpp`. The remaining files should not need analysis-specific changes
-unless you want to change how facts are displayed.
+The reusable plugin and annotation scaffolding is separate from the
+analysis-specific domain and transfer functions.
 
 ## Tests
 
-`test/known-bits.mlir` contains starter operations for the analysis.
-`test/known-bits.expected` lists facts that must appear in the output, and —
-with a leading `!` — facts that must not. It currently verifies that the stub
-does not claim any known bits. Add positive and negative cases with each
-transfer rule.
+`test/known-bits.mlir` exercises constants, exact and partially known bitwise
+operations, addition, subtraction, wrapping behavior, control-flow joins, and
+multiple bit widths. It also includes a smoke test for obtaining the `index`
+width from a 32-bit DLTI layout.
+
+`test/known-bits.expected` lists annotated operation fragments that must appear
+in the output. A leading `!` denotes a fragment that must not appear. The
+checks are attached to the operations producing the facts so that an unrelated
+constant cannot accidentally satisfy a transfer-function test.
 
 Note that MLIR's printer renumbers SSA values, so the checks are written
 against operation text rather than source SSA names. After adding or reordering
@@ -154,14 +157,37 @@ reachability — without it the solver must assume every branch is taken — and
 `KnownBitsAnalysis` then propagates states through operations and block
 arguments until the solver reaches a fixed point.
 
-`KnownBitsState` has bottom, bits, and top states. A bits state carries the bit
-width and separate vectors for positions known to be zero and known to be one.
-Bottom means unreachable or not yet analyzed; top means no bits are known.
-`visitOperation` still raises every result to top, and `setToEntryState` does
-the same for values entering from outside the analysis. Consequently, the
-annotation callback prints no facts until transfer functions construct bits
-states.
+`KnownBitsState` stores a bit width and two `llvm::BitVector`s: one for bits
+known to be zero and one for bits known to be one. Bottom represents an
+unreachable or not-yet-analyzed value. Top uses the ordinary known-bits
+encoding in which both vectors contain only zeroes, meaning no bit is known.
+The width is retained even at top so later operations can safely manipulate
+the vectors.
 
-The analysis is intraprocedural. Its known-bits representation, lattice join,
-and operation-specific transfer functions are intentionally left for the
-homework implementation.
+Joining two reachable states intersects their known-zero masks and intersects
+their known-one masks. A fact survives a control-flow merge only when it holds
+on every incoming path. Constructors and binary operations assert that vector
+sizes agree with the recorded width and that no bit is simultaneously known
+zero and known one.
+
+Integer constants produce exact masks. Bitwise operations use the usual
+per-bit rules. Addition uses a three-valued carry (`false`, `true`, or unknown)
+and preserves a known carry through `0 + ? + 0` and `1 + ? + 1`. Subtraction is
+implemented as two's-complement addition, `lhs + ~rhs + 1`. LLVM represents
+bitwise NOT as XOR with an all-ones value, which is already handled by the XOR
+transfer function.
+
+Entry states for integer types take their width from `IntegerType`. Entry
+states for `index` query the closest MLIR `DataLayout`, so the analysis does not
+assume a host-specific index width. Top and bottom values are omitted from the
+annotated listing; every printed annotation is therefore a fact proved by the
+analysis.
+
+## Current scope
+
+The analysis is intraprocedural and currently supports scalar integer results.
+It does not yet implement shifts, multiplication, integer casts, vectors, or
+range-sensitive operations. The `nuw` and `nsw` flags are currently ignored;
+the wrapping transfer remains conservative, but using those flags could prove
+additional high bits on non-poison executions. Poison is deliberately not
+represented in this domain.

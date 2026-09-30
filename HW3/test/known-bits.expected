@@ -1,4 +1,50 @@
-# The plugin must run and print the input, but the starter analysis must not
-# claim any known bits. Add positive facts here with each transfer rule.
-llvm.func @smoke
-!has known bits
+# Constants: zero, one, a mixed bit pattern, and all ones.
+llvm.mlir.constant(0 : i8) : i8 // %0 has known bits width=8 ones=0b00000000 zeros=0b11111111
+llvm.mlir.constant(1 : i8) : i8 // %1 has known bits width=8 ones=0b00000001 zeros=0b11111110
+llvm.mlir.constant(90 : i8) : i8 // %2 has known bits width=8 ones=0b01011010 zeros=0b10100101
+llvm.mlir.constant(-1 : i8) : i8 // %3 has known bits width=8 ones=0b11111111 zeros=0b00000000
+
+# Width handling is not hard-coded to i8. The index function also checks that
+# a 32-bit DLTI index entry can be queried without failing.
+llvm.mlir.constant(true) : i1 // %0 has known bits width=1 ones=0b1 zeros=0b0
+llvm.mlir.constant(4660 : i16) : i16 // %0 has known bits width=16 ones=0b0001001000110100 zeros=0b1110110111001011
+func.func @index_width
+
+# Exact bitwise results: 0x5a & 0x3c, |, ^, and ~0x5a.
+llvm.and %0, %1 : i8 // %3 has known bits width=8 ones=0b00011000 zeros=0b11100111
+llvm.or %0, %1 : i8 // %4 has known bits width=8 ones=0b01111110 zeros=0b10000001
+llvm.xor %0, %1 : i8 // %5 has known bits width=8 ones=0b01100110 zeros=0b10011001
+llvm.xor %0, %2 : i8 // %6 has known bits width=8 ones=0b10100101 zeros=0b01011010
+
+# A top operand combined with masks must still discover forced bits.
+llvm.and %arg0, %0 : i8 // %4 has known bits width=8 ones=0b00000000 zeros=0b11111111
+llvm.or %arg0, %1 : i8 // %5 has known bits width=8 ones=0b11111111 zeros=0b00000000
+llvm.and %arg0, %2 : i8 // %6 has known bits width=8 ones=0b00000000 zeros=0b11110000
+llvm.or %arg0, %3 : i8 // %7 has known bits width=8 ones=0b11110000 zeros=0b00000000
+llvm.xor %6, %1 : i8 // %8 has known bits width=8 ones=0b11110000 zeros=0b00000000
+
+# Exact addition: 5 + 3, 0xff + 1, 0x7f + 1, and 5 + 0.
+llvm.add %3, %2 : i8 // %6 has known bits width=8 ones=0b00001000 zeros=0b11110111
+llvm.add %4, %1 : i8 // %7 has known bits width=8 ones=0b00000000 zeros=0b11111111
+llvm.add %5, %1 : i8 // %8 has known bits width=8 ones=0b10000000 zeros=0b01111111
+llvm.add %3, %0 : i8 // %9 has known bits width=8 ones=0b00000101 zeros=0b11111010
+
+# Partial addition: (x & 0x0f) + 1 and an even value plus one.
+llvm.add %3, %0 : i8 // %5 has known bits width=8 ones=0b00000000 zeros=0b11100000
+llvm.add %4, %0 : i8 // %6 has known bits width=8 ones=0b00000001 zeros=0b00000000
+
+# Exact subtraction: 5 - 3, 0 - 1, and 3 - 3.
+llvm.sub %3, %2 : i8 // %4 has known bits width=8 ones=0b00000010 zeros=0b11111101
+llvm.sub %0, %1 : i8 // %5 has known bits width=8 ones=0b11111111 zeros=0b00000000
+llvm.sub %2, %2 : i8 // %6 has known bits width=8 ones=0b00000000 zeros=0b11111111
+
+# Partial subtraction: even - 1 is odd; odd - 1 is even.
+llvm.sub %3, %0 : i8 // %5 has known bits width=8 ones=0b00000001 zeros=0b00000000
+llvm.sub %4, %0 : i8 // %6 has known bits width=8 ones=0b00000000 zeros=0b00000001
+
+# Join of zero and one retains their seven common known-zero bits.
+argument: %2 has known bits width=8 ones=0b00000000 zeros=0b11111110
+llvm.or %2, %0 : i8 // %3 has known bits width=8 ones=0b00000000 zeros=0b11111110
+
+# No valid state may claim a bit is both known zero and known one.
+!ones=0b11111111 zeros=0b11111111

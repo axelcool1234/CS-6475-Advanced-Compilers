@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.20)
 # with check_c_compiler_flag, and hard-errors if the C compiler is unknown.
 project(KnownBits LANGUAGES C CXX)
 
+# Keep a compilation database for clangd and other source tooling.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 #===----------------------------------------------------------------------===#
 # Locate MLIR
 #
@@ -96,7 +99,8 @@ if(NOT LLVM_ENABLE_PLUGINS AND NOT LLVM_EXPORT_SYMBOLS_FOR_PLUGINS)
 endif()
 
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS} ${MLIR_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND "${LLVM_DEFINITIONS}")
+add_definitions(${LLVM_DEFINITIONS_LIST})
 
 #===----------------------------------------------------------------------===#
 # The plugin
@@ -116,6 +120,20 @@ add_llvm_library(KnownBits MODULE PARTIAL_SOURCES_INTENDED
   Plugin.cpp
   PLUGIN_TOOL mlir-opt
 )
+
+# Nix's compiler wrapper exposes dependency and standard-library headers
+# through environment flags. CMake classifies those paths as implicit and
+# omits them from compile_commands.json, where clangd cannot see them. Record
+# the complete implicit search path explicitly for source tooling.
+set(KNOWN_BITS_TOOLING_INCLUDE_DIRS
+  ${LLVM_INCLUDE_DIRS}
+  ${MLIR_INCLUDE_DIRS}
+  ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+list(REMOVE_DUPLICATES KNOWN_BITS_TOOLING_INCLUDE_DIRS)
+foreach(include_dir IN LISTS KNOWN_BITS_TOOLING_INCLUDE_DIRS)
+  target_compile_options(KnownBits PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:-isystem${include_dir}>")
+endforeach()
 
 set_target_properties(KnownBits PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
