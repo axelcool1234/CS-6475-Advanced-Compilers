@@ -33,6 +33,14 @@ llvm.add %3, %0 : i8 // %9 has known bits width=8 ones=0b00000101 zeros=0b111110
 llvm.add %3, %0 : i8 // %5 has known bits width=8 ones=0b00000000 zeros=0b11100000
 llvm.add %4, %0 : i8 // %6 has known bits width=8 ones=0b00000001 zeros=0b00000000
 
+# Minimal reproducer: an even unknown value plus one is known odd only.
+llvm.add %2, %0 : i8 // %3 has known bits width=8 ones=0b00000001 zeros=0b00000000
+
+# Bounded arithmetic: a low-nibble increment keeps its upper three bits
+# clear; subtracting one from a masked odd value also keeps bit 0 clear.
+llvm.add %2, %0 : i8 // %3 has known bits width=8 ones=0b00000000 zeros=0b11100000
+llvm.sub %4, %0 : i8 // %5 has known bits width=8 ones=0b00000000 zeros=0b11110001
+
 # Exact subtraction: 5 - 3, 0 - 1, and 3 - 3.
 llvm.sub %3, %2 : i8 // %4 has known bits width=8 ones=0b00000010 zeros=0b11111101
 llvm.sub %0, %1 : i8 // %5 has known bits width=8 ones=0b11111111 zeros=0b00000000

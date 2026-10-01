@@ -73,6 +73,29 @@ module attributes {
     llvm.return %small_plus_one : i8
   }
 
+  // Minimal reproducer: clearing bit 0 makes an unknown value even; adding
+  // one must therefore prove only that bit 0 of the result is one.
+  llvm.func @odd_from_even(%arg: i8) -> i8 {
+    %one = llvm.mlir.constant(1 : i8) : i8
+    %clear_low_bit = llvm.mlir.constant(-2 : i8) : i8
+    %even = llvm.and %arg, %clear_low_bit : i8
+    %odd = llvm.add %even, %one : i8
+    llvm.return %odd : i8
+  }
+
+  // Bounded arithmetic preserves more than a single parity bit. The low
+  // nibble limits the increment, while making it odd prevents a borrow when
+  // subtracting one.
+  llvm.func @bounded_arithmetic(%arg: i8) -> i8 {
+    %one = llvm.mlir.constant(1 : i8) : i8
+    %low_nibble = llvm.mlir.constant(15 : i8) : i8
+    %low = llvm.and %arg, %low_nibble : i8
+    %increment = llvm.add %low, %one : i8
+    %odd = llvm.or %low, %one : i8
+    %predecessor = llvm.sub %odd, %one : i8
+    llvm.return %increment : i8
+  }
+
   llvm.func @subtraction_exact() -> i8 {
     %zero = llvm.mlir.constant(0 : i8) : i8
     %one = llvm.mlir.constant(1 : i8) : i8
