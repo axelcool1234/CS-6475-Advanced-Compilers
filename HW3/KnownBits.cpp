@@ -93,7 +93,11 @@ LogicalResult KnownBitsAnalysis::visitOperation(
     }
 
     if (isa<LLVM::AddOp>(op)) {
-      propagateIfChanged(result, result->join(lhs + rhs));
+      // `injectUnsoundAdd` is intentionally wrong: XOR agrees with addition
+      // only when no carries occur.  It exists solely so the dynamic checker
+      // can be demonstrated even when the real transfer functions are sound.
+      const KnownBitsState sum = injectUnsoundAdd ? (lhs ^ rhs) : (lhs + rhs);
+      propagateIfChanged(result, result->join(sum));
       return success();
     }
 

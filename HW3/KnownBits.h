@@ -13,7 +13,10 @@ using KnownBitsLattice = mlir::dataflow::Lattice<KnownBitsState>;
 class KnownBitsAnalysis
     : public mlir::dataflow::SparseForwardDataFlowAnalysis<KnownBitsLattice> {
 public:
-  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+  explicit KnownBitsAnalysis(mlir::DataFlowSolver &solver,
+                             bool injectUnsoundAdd = false)
+      : SparseForwardDataFlowAnalysis(solver),
+        injectUnsoundAdd(injectUnsoundAdd) {}
 
   mlir::LogicalResult
   visitOperation(mlir::Operation *op,
@@ -21,6 +24,11 @@ public:
                  llvm::ArrayRef<KnownBitsLattice *> results) override;
 
   void setToEntryState(KnownBitsLattice *lattice) override;
+
+private:
+  /// Testing hook for the dynamic checker. When enabled, addition is
+  /// deliberately (and incorrectly) modeled as carry-free XOR.
+  bool injectUnsoundAdd;
 };
 
 } // namespace known_bits

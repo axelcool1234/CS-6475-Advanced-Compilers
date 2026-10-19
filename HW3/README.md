@@ -100,6 +100,35 @@ scaffolding.
 The reusable plugin and annotation scaffolding is separate from the
 analysis-specific domain and transfer functions.
 
+## Dynamic soundness checking
+
+Pass option `instrument=true` turns every nontrivial known-bits fact into an
+executable mask check. For known-zero mask `Z`, known-one mask `O`, and runtime
+value `x`, the inserted predicate is:
+
+```text
+(x & (Z | O)) == O
+```
+
+The pass calls `__known_bits_assert` with that predicate and a diagnostic that
+identifies the SSA value, operation, source location, and both masks. The small
+runtime and exhaustive i8 harness are under `dynamic/`. Run the sound analysis
+and the deliberately unsound demonstration variant inside the development
+shell:
+
+```sh
+./dynamic/check.sh
+./dynamic/check.sh --inject-bug
+INPUT=dynamic/corpus.mlir HARNESS=dynamic/corpus-harness.c ./dynamic/check.sh
+```
+
+The second command enables `inject-unsound-add=true`, which intentionally
+models addition as XOR (addition without carries). It is a testing hook, not
+part of the normal analysis. `dynamic/bug-trigger.mlir` exposes the mistake at
+input 15, where `(15 & 15) + 1` is 16 and therefore sets bit 4.
+The larger corpus exhaustively runs all 256 inputs through the unary transfer
+chains, all 65,536 pairs through masked addition, and both sides of a CFG join.
+
 ## Tests
 
 `test/known-bits.mlir` exercises constants, exact and partially known bitwise

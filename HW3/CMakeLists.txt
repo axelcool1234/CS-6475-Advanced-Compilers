@@ -172,6 +172,12 @@ if(MLIR_OPT_EXECUTABLE)
       -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/test/known-bits.mlir
       -DCHECKS=${CMAKE_CURRENT_SOURCE_DIR}/test/known-bits.expected
       -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunTest.cmake)
+  add_test(NAME known-bits-instrumentation
+    COMMAND ${CMAKE_COMMAND}
+      -DMLIR_OPT=${MLIR_OPT_EXECUTABLE}
+      -DPLUGIN=$<TARGET_FILE:KnownBits>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/dynamic/bug-trigger.mlir
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunInstrumentationTest.cmake)
 else()
   message(STATUS "mlir-opt not found; skipping tests")
 endif()
