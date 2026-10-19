@@ -21,7 +21,7 @@ foreach(expected
     "llvm.func @__known_bits_assert"
     "llvm.icmp \"eq\""
     "llvm.call @__known_bits_assert"
-    "known-bits assertion for")
+    "known bits assertion for")
   string(FIND "${instrumented}" "${expected}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "instrumented IR is missing: ${expected}")

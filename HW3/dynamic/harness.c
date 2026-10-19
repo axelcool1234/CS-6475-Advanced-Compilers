@@ -11,6 +11,6 @@ int main(void) {
     (void)bounded_increment((uint8_t)input);
   }
 
-  puts("all 256 i8 inputs passed the dynamic known-bits checks");
+  puts("all 256 i8 inputs passed the dynamic known bits checks");
   return 0;
 }

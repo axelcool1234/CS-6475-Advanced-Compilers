@@ -95,7 +95,7 @@ static void instrument(ModuleOp module, DataFlowSolver &solver) {
 
       std::string message;
       llvm::raw_string_ostream os(message);
-      os << "known-bits assertion for ";
+      os << "known bits assertion for ";
       value.printAsOperand(os, asmState);
       os << " after " << op->getName() << " at ";
       op->getLoc().print(os);
@@ -124,7 +124,7 @@ static void instrument(ModuleOp module, DataFlowSolver &solver) {
 
       std::string message;
       llvm::raw_string_ostream os(message);
-      os << "known-bits assertion for block argument ";
+      os << "known bits assertion for block argument ";
       value.printAsOperand(os, asmState);
       os << " at ";
       value.getLoc().print(os);

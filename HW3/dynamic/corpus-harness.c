@@ -30,6 +30,6 @@ int main(void) {
   known_bits_current_input = 1;
   (void)check_join(true);
 
-  puts("all 66,306 corpus executions passed the dynamic known-bits checks");
+  puts("all 66,306 corpus executions passed the dynamic known bits checks");
   return 0;
 }
